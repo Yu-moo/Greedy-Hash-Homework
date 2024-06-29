@@ -4,7 +4,7 @@ import numpy as np
 # print(torch.__version__)
 # print(torch.cuda.is_available())
 
-def compress(train, test, model, classes=10):
+def compress(train, test, model, classes=10,onehot=True):
     retrievalB = list([])
     retrievalL = list([])
     for batch_step, (data, target) in enumerate(train):
@@ -20,12 +20,15 @@ def compress(train, test, model, classes=10):
         _,_, code = model(var_data)
         queryB.extend(code.cpu().data.numpy())
         queryL.extend(target)
-
+    
     retrievalB = np.array(retrievalB)
-    retrievalL = np.eye(classes)[np.array(retrievalL)]
-
     queryB = np.array(queryB)
-    queryL = np.eye(classes)[np.array(queryL)]
+    if onehot:
+        retrievalL = np.array(retrievalL)
+        queryL = np.array(queryL)
+    else:
+        retrievalL = np.eye(classes)[np.array(retrievalL)]
+        queryL = np.eye(classes)[np.array(queryL)]
     return retrievalB, retrievalL, queryB, queryL
 
 
@@ -54,7 +57,7 @@ def calculate_map(qB, rB, queryL, retrievalL):
         # gnd : check if exists any retrieval items with same label
         gnd = (np.dot(queryL[iter, :], retrievalL.transpose()) > 0).astype(np.float32)
         # tsum number of items with same label
-        tsum = np.sum(gnd)
+        tsum = int(np.sum(gnd))
         if tsum == 0:
             continue
         # sort gnd by hamming dist
@@ -86,10 +89,11 @@ def calculate_top_map(qB, rB, queryL, retrievalL, topk):
         gnd = (np.dot(queryL[iter, :], retrievalL.transpose()) > 0).astype(np.float32)
         hamm = calculate_hamming(qB[iter, :], rB)
         ind = np.argsort(hamm)
+        
         gnd = gnd[ind]
-
         tgnd = gnd[0:topk]
-        tsum = np.sum(tgnd)
+        
+        tsum = int(np.sum(tgnd))
         if tsum == 0:
             continue
         count = np.linspace(1, tsum, tsum)

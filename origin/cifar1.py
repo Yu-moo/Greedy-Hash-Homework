@@ -8,7 +8,9 @@ from torch.autograd import Variable
 import torchvision
 import math
 import numpy as np
-from cal_map import calculate_map, compress
+from cal_map import calculate_map,calculate_top_map, compress
+
+from torchvision.models import AlexNet_Weights
 
 
 # Hyper Parameters
@@ -33,26 +35,26 @@ test_transform = transforms.Compose([
 ])
 
 # Dataset
-train_dataset = dsets.CIFAR10(root='data/',
+train_dataset = dsets.CIFAR10(root='/root/autodl-tmp/cifar',
                               train=True,
                               transform=train_transform,
-                              download=True)
+                              download=False)
 
-test_dataset = dsets.CIFAR10(root='data/',
+test_dataset = dsets.CIFAR10(root='/root/autodl-tmp/cifar',
                              train=False,
                              transform=test_transform)
 
-database_dataset = dsets.CIFAR10(root='data/',
+database_dataset = dsets.CIFAR10(root='/root/autodl-tmp/cifar',
                                  train=False,
                                  transform=test_transform)
 
 
 # Construct training, query and database set
-X = train_dataset.train_data
-L = np.array(train_dataset.train_labels)
+X = train_dataset.data
+L = np.array(train_dataset.targets)
 
-X = np.concatenate((X, test_dataset.test_data))
-L = np.concatenate((L, np.array(test_dataset.test_labels)))
+X = np.concatenate((X, test_dataset.data))
+L = np.concatenate((L, np.array(test_dataset.targets)))
 
 first = True
 
@@ -139,7 +141,8 @@ def hash_layer(input):
 class CNN(nn.Module):
     def __init__(self, encode_length, num_classes):
         super(CNN, self).__init__()
-        self.alex = torchvision.models.alexnet(pretrained=True)
+        #self.alex = torchvision.models.alexnet(pretrained=True)
+        self.alex = torchvision.models.alexnet(weights=AlexNet_Weights.IMAGENET1K_V1)
         self.alex.classifier = nn.Sequential(*list(self.alex.classifier.children())[:6])
         self.fc_plus = nn.Linear(4096, encode_length)
         self.fc = nn.Linear(encode_length, num_classes, bias=False)
@@ -149,8 +152,12 @@ class CNN(nn.Module):
         x = x.view(x.size(0), 256 * 6 * 6)
         x = self.alex.classifier(x)
         x = self.fc_plus(x)
-        code = hash_layer(x)
-        output = self.fc(code)
+        
+        # code = hash_layer(x)
+        # output = self.fc(code)
+
+        code=hash_layer(x)
+        output=self.fc(x)
 
         return output, x, code
 
@@ -179,7 +186,7 @@ for epoch in range(num_epochs):
     for i, (images, labels) in enumerate(train_loader):
         images = Variable(images.cuda())
         labels = Variable(labels.cuda())
-
+        
         # Forward + Backward + Optimize
         optimizer.zero_grad()
         outputs, feature, _ = cnn(images)
@@ -193,14 +200,17 @@ for epoch in range(num_epochs):
         if (i + 1) % (len(train_dataset) // batch_size / 2) == 0:
             print ('Epoch [%d/%d], Iter [%d/%d] Loss1: %.4f Loss2: %.4f'
                    % (epoch + 1, num_epochs, i + 1, len(train_dataset) // batch_size,
-                      loss1.data[0], loss2.data[0]))
+                      loss1.item(), loss2.item()))
+                      #loss1.data[0], loss2.data[0]))
 
     # Test the Model
     cnn.eval()  # Change model to 'eval' mode
     correct = 0
     total = 0
     for images, labels in test_loader:
-        images = Variable(images.cuda(), volatile=True)
+        with torch.no_grad():
+            images = images.cuda()
+        #images = Variable(images.cuda(), volatile=True)
         outputs, _, _ = cnn(images)
         _, predicted = torch.max(outputs.cpu().data, 1)
         total += labels.size(0)
@@ -213,6 +223,9 @@ for epoch in range(num_epochs):
         torch.save(cnn.state_dict(), 'temp.pkl')
         
     print('best: %.2f %%' % (best * 100.0))
+    retrievalB, retrievalL, queryB, queryL = compress(database_loader, test_loader, cnn,onehot=False)
+    result = calculate_top_map(qB=queryB, rB=retrievalB, queryL=queryL, retrievalL=retrievalL, topk=1000)
+    print("calculate_top_map1000: ",result)
 
 
 # Save the Trained Model
@@ -220,14 +233,15 @@ torch.save(cnn.state_dict(), 'cifar1.pkl')
 
 
 # Calculate MAP
-#cnn.load_state_dict(torch.load('temp.pkl'))
+# cnn.cuda()
+# cnn.load_state_dict(torch.load('cifar1.pkl'))
 cnn.eval()
-retrievalB, retrievalL, queryB, queryL = compress(database_loader, test_loader, cnn)
+retrievalB, retrievalL, queryB, queryL = compress(database_loader, test_loader, cnn,onehot=False)
 print(np.shape(retrievalB))
 print(np.shape(retrievalL))
 print(np.shape(queryB))
 print(np.shape(queryL))
-
+"""
 print('---calculate map---')
 result = calculate_map(qB=queryB, rB=retrievalB, queryL=queryL, retrievalL=retrievalL)
 print(result)
@@ -235,4 +249,4 @@ print(result)
 print('---calculate top map---')
 result = calculate_top_map(qB=queryB, rB=retrievalB, queryL=queryL, retrievalL=retrievalL, topk=1000)
 print(result)
-"""
+
