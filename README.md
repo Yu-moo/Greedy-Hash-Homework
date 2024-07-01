@@ -7,7 +7,15 @@ code [GreedyHash](https://github.com/ssppp/GreedyHash)
 除cifar外，训练集与测试集的选择与DPCHash_Baselines中txt文件一致（dataloader中shuffle=True读取顺序不一定一致）
 cifar在DPCHash_Baselines中没有提供具体训练集和测试集的选择，选取与论文中相同的设置。
 
+使用自购AUTODL下的RTX 2080 Ti * 1卡
+主机名称：北京A区 / 673机
+GPU驱动：535.146.02
+CUDA版本：≤ 12.2
+
 CIFAR:https://www.cs.toronto.edu/~kriz/cifar.html
+
 MSCOCO:https://cocodataset.org/
+
 NUS-WIDES: https://pan.baidu.com/s/1f9mKXE2T8XpIq8p7y8Fa6Q
+
 flickr25k: https://www.kaggle.com/datasets/e593768f204b802f95db5af3f7258e64ad2fe696d2e6d09258eb03509292ece0?resource=download
