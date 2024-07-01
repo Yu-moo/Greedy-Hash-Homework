@@ -1,6 +1,8 @@
 # Greedy-Hash-Homework
 论文复现，机器学习大作业，原论文GreedyHash(NIPS2018)
+
 paper [Greedy Hash: Towards Fast Optimization for Accurate Hash Coding in CNN](https://papers.nips.cc/paper/7360-greedy-hash-towards-fast-optimization-for-accurate-hash-coding-in-cnn.pdf)
+
 code [GreedyHash](https://github.com/ssppp/GreedyHash)
 
 不包含数据集图片文件，
